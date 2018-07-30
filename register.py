@@ -71,60 +71,46 @@ def register_vm(cpuid, uuid):
 
     try:
         r = requests.post(url, headers=headers, data=data)
+        r.raise_for_status()
 
-    except urllib.error.HTTPError as err:
-        print("Error when reaching API License Server")
-        var_dump(req)
-        var_dump(err)
-        return False
+    except requests.exceptions.HTTPError as err:
+        print ("Can't register the VM with the autcode {}.\n See the message {}".format(authcode, err.response._content))
+        raise
 
     except:
         print("Error when reaching API License Server")
-        return False
+        raise
 
-    for x in r:
-        resp = json.loads(x)
 
-    for lic in resp:
-        var_dump(lic)
-        fName = "./licenses/"+lic['serialnumField']+"/"
+    else:
+    
+        var_dump(r.json())
+        for lic in r.json():
+            
+            fName = "./licenses/"+lic['serialnumField']+"/"
 
-        ## while statement added to address the issues with the fact the auto focus licences
-        ## does not have a partidfield to work with
-        ## so instead look at the feature Field and if autofocus
-        ## manual set the file name.
+            if lic['featureField'] == ('AutoFocus Device License'):
+                fName += "PAN-VM-autofocus.key"
+            else:
+                fName += lic['partidField']+".key"
+            
+            os.makedirs(os.path.dirname(fName), exist_ok=True)
 
-        if lic['featureField'] == ('AutoFocus Device License'):
-            fName += "PAN-VM-autofocus.key"
-        else:
-            fName += lic['partidField']+".key"
-        
-        os.makedirs(os.path.dirname(fName), exist_ok=True)
+            f = open(fName,"w")
+            f.write(lic['keyField'])
+            f.close()
 
-        f = open(fName,"w")
-        f.write(lic['keyField'])
-        f.close()
-
-    r.close()
+        r.close()
 
     return True
 
-def register(fw_hostname):
+def register(fw_hostname = None):
+
+    if fw_hostname == None:
+        raise ValueError("Undefined hostname")
+        return False
 
     print("Registering for %s" % fw_hostname)
-
-    # Get command line arguments
-    parser = argparse.ArgumentParser(description="Third party license server API validation for VM without Internet access")
-    parser.add_argument('-v', '--verbose', action='count', help="Verbose (-vv for extra verbose)")
-    parser.add_argument('-q', '--quiet', action='store_true', help="No output")
-
-    args = parser.parse_args()
-
-    ### Set up logger
-    # Logging Levels
-    # WARNING is 30
-    # INFO is 20
-    # DEBUG is 10
 
     logging_format = '%(levelname)s:%(name)s:%(message)s'
     logging.basicConfig(format=logging_format, level=10)
@@ -134,3 +120,6 @@ def register(fw_hostname):
     (cpuid, uuid) = get_vm_infos(fw_hostname, fw_api_username, fw_api_password)
     
     register_vm(cpuid, uuid)
+
+# if __name__ == '__main__':
+#     register("10.0.3.100")
