@@ -16,6 +16,7 @@
 
 import socket
 import threading
+import register
 
 bind_ip = '0.0.0.0'
 bind_port = 3978
@@ -35,4 +36,5 @@ def handle_client_connection(client_socket):
 while True:
     client_sock, address = server.accept()
     print ('Accepted connection from {}:{}'.format(address[0], address[1]))
+    register.register(address[0])
     client_sock.close()
