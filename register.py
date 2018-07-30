@@ -20,6 +20,7 @@ import argparse
 import logging
 import json
 import requests
+import urllib3
 
 try:
     from config import *
@@ -67,6 +68,8 @@ def register_vm(cpuid, uuid):
     global authcode, url, api
 
     data = { "cpuid" : cpuid, "uuid" : uuid, "authCode" : authcode }
+
+    data = urllib3.request.urlencode({"user" : "john" }data) 
     headers = {'apikey': api, 'user-agent': 'PANW-Lic-API/0.1.0'}
 
     try:
@@ -122,5 +125,5 @@ def register(fw_hostname = None):
     
     register_vm(cpuid, uuid)
 
-# if __name__ == '__main__':
-#     register("10.0.3.100")
+if __name__ == '__main__':
+    register("10.0.3.101")
