@@ -79,6 +79,7 @@ def register_vm(cpuid, uuid):
     except:
         print("Error when reaching API License Server")
         var_dump(req)
+        var_dump(r)
         return False
 
     for x in r:
