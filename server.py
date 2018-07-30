@@ -44,6 +44,67 @@ fw_api_password = 'admin'
 
 pn = None
 
+def get_vm_infos(fw_hostname, fw_api_username, fw_api_password):
+    try:
+        fw = firewall.Firewall(fw_hostname, fw_api_username, fw_api_password)
+        
+        resp = fw.op("show system info")
+
+        for t in resp.iter('vm-uuid'):
+            uuid = t.text
+
+        for t in resp.iter('vm-cpuid'):
+            cpuid = t.text
+
+        return (uuid, cpuid)
+    
+    except:
+        print("Error when reaching Firewall")
+        return False
+
+def register_vm(cpuid, uuid):
+    global authcode, url, api
+
+    data = urllib.parse.urlencode({ "cpuid" : cpuid , "uuid" : uuid ,"authCode" : authcode })
+    data = data.encode('ascii')
+
+    try:
+        req = urllib.request.Request(url=url, data=data)
+        req.add_header('apikey', api)
+        r = urllib.request.urlopen(req)
+
+    except:
+        print("Error when reaching API License Server")
+        var_dump(req)
+        return False
+
+    for x in r:
+        resp = json.loads(x)
+
+    for lic in resp:
+        var_dump(lic)
+        fName = "./licenses/"+lic['serialnumField']+"/"
+
+        ## while statement added to address the issues with the fact the auto focus licences
+        ## does not have a partidfield to work with
+        ## so instead look at the feature Field and if autofocus
+        ## manual set the file name.
+
+        if lic['featureField'] == ('AutoFocus Device License'):
+            fName += "PAN-VM-autofocus.key"
+        else:
+            fName += lic['partidField']+".key"
+        
+        os.makedirs(os.path.dirname(fName), exist_ok=True)
+
+        f = open(fName,"w")
+        f.write(lic['keyField'])
+        f.close()
+
+    r.close()
+
+    return True
+
 def main():
 
     # Get command line arguments
@@ -68,68 +129,11 @@ def main():
             logging_format = '%(message)s'
         logging.basicConfig(format=logging_format, level=logging_level)
 
-    print ("Connecting!")
-    global pn, pn_hostname, pn_api_username, pn_api_password
-    #pn = panorama.Panorama(pn_hostname, pn_api_username, pn_api_password)
-    #pprint (pn.op("show devices all"))
-
-    global fw, fw_hostname, fw_api_username, fw_api_password
-    fw = firewall.Firewall(fw_hostname, fw_api_username, fw_api_password)
-    print('Firewall system info: {0}'.format(fw.refresh_system_info()))
-    resp = fw.op("show system info")
-
-    for t in resp.iter('vm-uuid'):
-        uuid = t.text
-
-    for t in resp.iter('vm-cpuid'):
-        cpuid = t.text
+    global fw_hostname, fw_api_username, fw_api_password
     
-    print ("cpuid: %s" % cpuid)    
-    print ("uuid: %s" % uuid)
-
+    (cpuid, uuid) = get_vm_infos(fw_hostname, fw_api_username, fw_api_password)
+    
     register_vm(cpuid, uuid)
-
-def register_vm(cpuid, uuid):
-    global authcode, url, api
-
-    data =  urllib.parse.urlencode({ "cpuid" : cpuid , "uuid" : uuid ,"authCode" : authcode })
-    data = data.encode('ascii')
-
-    req = urllib.request.Request(url=url, data=data)
-    req.add_header( 'apikey', api )
-
-    var_dump (req)
-
-    r = urllib.request.urlopen(req)
-
-    dname = "plop"
-
-    var_dump (r)
-
-    for x in r:
-        resp = json.loads(x)
-        c = (len(resp))
-
-    i=0
-    ## while statement added to address the issues with the fact the auto focus licences
-    ## does not have a partidfield to work with
-    ## so instead look at the feature Field and if autoforcus
-    ## manual set the file name.
-    while i < c:
-        if resp[i]['featureField'] == ('AutoFocus Device License'):
-            fName = dname+"-PAN-VM-autofocus.key"
-            file = open(fName,"w") 
-            file.write(resp[i]['keyField'])
-            file.close() 
-            i+=1
-        else:
-            fName = dname+"-"+resp[i]['partidField']+".key"
-            file = open(fName,"w") 
-            file.write(resp[i]['keyField'])
-            file.close() 
-            i+=1
-        
-    r.close()
 
 if __name__== "__main__":
     main()
