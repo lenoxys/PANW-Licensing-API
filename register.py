@@ -19,9 +19,7 @@ import os
 import argparse
 import logging
 import json
-
-import urllib.request
-import urllib.parse
+import request
 
 try:
     from config import *
@@ -68,13 +66,11 @@ def get_vm_infos(fw_hostname, fw_api_username, fw_api_password):
 def register_vm(cpuid, uuid):
     global authcode, url, api
 
-    data = urllib.parse.urlencode({ "cpuid" : cpuid , "uuid" : uuid ,"authCode" : authcode })
-    data = data.encode('ascii')
+    data = { "cpuid" : cpuid, "uuid" : uuid, "authCode" : authcode }
+    headers = {'apikey': api, 'user-agent': 'PANW-Lic-API/0.1.0'}
 
     try:
-        req = urllib.request.Request(url=url, data=data)
-        req.add_header('apikey', api)
-        r = urllib.request.urlopen(req)
+        r = requests.post(url, headers=headers, data=data)
 
     except urllib.error.HTTPError as err:
         print("Error when reaching API License Server")
