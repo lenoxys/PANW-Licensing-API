@@ -70,7 +70,7 @@ def register_vm(cpuid, uuid):
     headers = {'apikey': api, 'user-agent': 'PANW-Lic-API/0.1.0'}
 
     try:
-        r = requests.post(url, headers=headers, data=data)
+        r = requests.post(url, headers=headers, json=data)
         r.raise_for_status()
 
     except requests.exceptions.HTTPError as err:
@@ -85,6 +85,7 @@ def register_vm(cpuid, uuid):
     else:
     
         var_dump(r.json())
+
         for lic in r.json():
             
             fName = "./licenses/"+lic['serialnumField']+"/"
