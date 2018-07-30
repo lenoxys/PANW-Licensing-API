@@ -26,16 +26,16 @@ def main():
     print ("Super User permissions are required to access the Enable link below to regenerate or disable the license key.")
     print ("You'll find this key under Palo Alto Networks Support Website : Assets > Licensing API Key")
 
-    api = raw_input("Licensing API Key: ")
+    api = input("Licensing API Key: ")
     f.write("api = '%s'\n" % api) 
 
-    api = raw_input("Panorama IP or FQDN: ")
+    api = input("Panorama IP or FQDN: ")
     f.write("pn_hostname = '%s'\n" % api) 
 
-    api = raw_input("Panorama API username: ")
+    api = input("Panorama API username: ")
     f.write("pn_api_username = '%s'\n" % api) 
 
-    api = raw_input("Panorama API password: ")
+    api = input("Panorama API password: ")
     f.write("pn_api_password = '%s'\n" % api) 
 
     f.close()
