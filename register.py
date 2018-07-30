@@ -56,6 +56,9 @@ def get_vm_infos(fw_hostname, fw_api_username, fw_api_password):
         for t in resp.iter('vm-cpuid'):
             cpuid = t.text
 
+        print("%s" % cpuid)
+        print("%s" % uuid)
+
         return (uuid, cpuid)
     
     except:
