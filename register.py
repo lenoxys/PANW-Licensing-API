@@ -19,7 +19,7 @@ import os
 import argparse
 import logging
 import json
-import request
+import requests
 
 try:
     from config import *
