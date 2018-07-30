@@ -24,7 +24,7 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind((bind_ip, bind_port))
 server.listen(5)  # max backlog of connections
 
-print 'Listening on %s:%s'.format(bind_ip, bind_port)
+print ('Listening on {}:{}'.format(bind_ip, bind_port))
 
 
 def handle_client_connection(client_socket):
