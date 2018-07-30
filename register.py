@@ -76,11 +76,14 @@ def register_vm(cpuid, uuid):
         req.add_header('apikey', api)
         r = urllib.request.urlopen(req)
 
-    except:
+    except urllib.error.HTTPError as err:
         print("Error when reaching API License Server")
         var_dump(req)
-        var_dump(code)
-        var_dump(msg)
+        var_dump(err)
+        return False
+
+    except:
+        print("Error when reaching API License Server")
         return False
 
     for x in r:
