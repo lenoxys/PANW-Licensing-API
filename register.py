@@ -107,9 +107,25 @@ def register_vm(cpuid, uuid):
 
 def register(fw_hostname):
 
-    global fw_api_username, fw_api_password
-
     print("Registering for %s" % fw_hostname)
+
+    # Get command line arguments
+    parser = argparse.ArgumentParser(description="Third party license server API validation for VM without Internet access")
+    parser.add_argument('-v', '--verbose', action='count', help="Verbose (-vv for extra verbose)")
+    parser.add_argument('-q', '--quiet', action='store_true', help="No output")
+
+    args = parser.parse_args()
+
+    ### Set up logger
+    # Logging Levels
+    # WARNING is 30
+    # INFO is 20
+    # DEBUG is 10
+
+    logging_format = '%(levelname)s:%(name)s:%(message)s'
+    logging.basicConfig(format=logging_format, level=10)
+
+    global fw_api_username, fw_api_password
     
     (cpuid, uuid) = get_vm_infos(fw_hostname, fw_api_username, fw_api_password)
     
