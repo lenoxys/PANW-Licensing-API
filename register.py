@@ -81,7 +81,7 @@ def switch_to_panorama(r, fw_hostname, fw_api_username, fw_api_password, serialn
 
     logging.debug("Push license to the VM ")
 
-    req = "<request>"+"<license>
+    req = "<request>"+"<license>"
 
     for lic in r:
         req += "<install>"+"\n"
