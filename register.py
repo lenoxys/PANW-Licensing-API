@@ -50,13 +50,10 @@ def get_vm_infos(fw_hostname, fw_api_username, fw_api_password):
         resp = fw.op("show system info")
 
         for t in resp.iter('vm-uuid'):
-            uuid = t.text
+            uuid = str(t.text)
 
         for t in resp.iter('vm-cpuid'):
-            cpuid = t.text
-
-        print("'%s'" % cpuid)
-        print("'%s'" % uuid)
+            cpuid = str(t.text)
 
         return (uuid, cpuid)
     
