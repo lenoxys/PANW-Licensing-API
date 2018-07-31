@@ -81,12 +81,16 @@ def switch_to_panorama(r, fw_hostname, fw_api_username, fw_api_password, serialn
 
     for lic in r:
         logging.debug("Push license to the VM : {}".format(lic['featureField']))
+
         req = "<request><license><install>"
         req += lic['keyField']
         req += "</install></license></request>"
+
         fw.op(req, cmd_xml=False)
-    
-    fw.syncreboot()
+
+        if lic['featureField'] == "PA-VM":
+            fw.op("<request><restart><system></system></restart></request>", cmd_xml=False)
+            fw.syncreboot()
 
     pano = panorama.Panorama(pn_hostname, pn_api_username, pn_api_password)
     pano.add(panorama.DeviceGroup("undefined")).create()
