@@ -38,6 +38,12 @@ def main():
     api = input("Panorama API password: ")
     f.write("pn_api_password = '%s'\n" % api) 
 
+    api = input("Default Firewall admin username: ")
+    f.write("fw_api_username = '%s'\n" % api) 
+
+    api = input("Default Firewall admin password: ")
+    f.write("fw_api_password = '%s'\n" % api) 
+
     f.close()
 
 if __name__== "__main__":

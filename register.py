@@ -20,7 +20,9 @@ import argparse
 import logging
 import json
 import requests
-import urllib3
+import urllib
+
+sys.tracebacklimit = 0
 
 try:
     from config import *
@@ -31,17 +33,9 @@ except ImportError:
     sys.exit(0)
 
 from pandevice import firewall
-from pandevice import panorama
 from var_dump import var_dump
 
 url = 'https://api.paloaltonetworks.com/api/license/activate'
-
-# Firewall Conf
-fw_hostname = '10.0.3.100'
-fw_api_username = 'admin'
-fw_api_password = 'admin'
-
-pn = None
 
 def get_vm_infos(fw_hostname, fw_api_username, fw_api_password):
     try:
@@ -67,14 +61,18 @@ def get_vm_infos(fw_hostname, fw_api_username, fw_api_password):
 def register_vm(cpuid, uuid):
     global authcode, url, api
 
-    data = { "cpuid" : cpuid, "uuid" : uuid, "authCode" : authcode }
+    data = { 
+        "cpuid": urllib.parse.quote(cpuid), 
+        "uuid": urllib.parse.quote(uuid), 
+        "authCode": urllib.parse.quote(authcode)
+    }
 
-    data = urllib3.request.urlencode({"user" : "john" }data) 
     headers = {'apikey': api, 'user-agent': 'PANW-Lic-API/0.1.0'}
 
     try:
-        r = requests.post(url, headers=headers, json=data)
+        r = requests.post(url, headers=headers, data=data )
         r.raise_for_status()
+        return r
 
     except requests.exceptions.HTTPError as err:
         print ("Can't register the VM with the autcode {}.\n See the message {}".format(authcode, err.response._content))
@@ -84,29 +82,33 @@ def register_vm(cpuid, uuid):
         print("Error when reaching API License Server")
         raise
 
+    return None
 
-    else:
+def store_lic(r = None):
+
+    if r == None:
+        print("Nothing to process")
+        raise
     
-        var_dump(r.json())
+    var_dump(r.text())
 
-        for lic in r.json():
-            
-            fName = "./licenses/"+lic['serialnumField']+"/"
+    for lic in r.json():
+        
+        fName = "./licenses/"+lic['serialnumField']+"/"
 
-            if lic['featureField'] == ('AutoFocus Device License'):
-                fName += "PAN-VM-autofocus.key"
-            else:
-                fName += lic['partidField']+".key"
-            
-            os.makedirs(os.path.dirname(fName), exist_ok=True)
+        if lic['featureField'] == ('AutoFocus Device License'):
+            fName += "PAN-VM-autofocus.key"
+        else:
+            fName += lic['partidField']+".key"
+        
+        os.makedirs(os.path.dirname(fName), exist_ok=True)
 
-            f = open(fName,"w")
-            f.write(lic['keyField'])
-            f.close()
+        f = open(fName,"w")
+        f.write(lic['keyField'])
+        f.close()
 
-        r.close()
+    r.close()
 
-    return True
 
 def register(fw_hostname = None):
 
@@ -116,14 +118,17 @@ def register(fw_hostname = None):
 
     print("Registering for %s" % fw_hostname)
 
-    logging_format = '%(levelname)s:%(name)s:%(message)s'
-    logging.basicConfig(format=logging_format, level=10)
+    #logging_format = '%(levelname)s:%(name)s:%(message)s'
+    #logging.basicConfig(format=logging_format, level=10)
 
     global fw_api_username, fw_api_password
     
     (cpuid, uuid) = get_vm_infos(fw_hostname, fw_api_username, fw_api_password)
     
-    register_vm(cpuid, uuid)
+    r = register_vm(cpuid, uuid)
 
-if __name__ == '__main__':
-    register("10.0.3.101")
+    store_lic(r)
+
+
+# if __name__ == '__main__':
+#     register("10.0.3.102")
