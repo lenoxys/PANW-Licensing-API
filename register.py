@@ -85,8 +85,7 @@ def switch_to_panorama(r, fw_hostname, fw_api_username, fw_api_password, serialn
         req += lic['keyField']
         req += "</install></license></request>"
 
-        if lic['typeField'] != "SUP":
-            fw.op(req, cmd_xml=False)
+        fw.op(req, cmd_xml=False)
 
     fw.syncreboot()
 
@@ -96,6 +95,7 @@ def switch_to_panorama(r, fw_hostname, fw_api_username, fw_api_password, serialn
     #pano.commit(sync=True)
 
     fw.fetch_licenses_from_license_server()
+
 
 
 def forceauthcode(fw, auth_codeField):
