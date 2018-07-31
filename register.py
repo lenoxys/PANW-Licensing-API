@@ -79,9 +79,8 @@ def switch_to_panorama(r, fw_hostname, fw_api_username, fw_api_password, serialn
     conf.create()
     fw.commit(sync=True)
 
-    logging.debug("Push license to the VM ")
-
     for lic in r:
+        logging.debug("Push license to the VM : {}".format(lic['featureField']))
         req = "<request><license><install>"
         req += lic['keyField']
         req += "</install></license></request>"
