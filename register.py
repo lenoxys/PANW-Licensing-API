@@ -84,7 +84,7 @@ def switch_to_panorama(r, fw_hostname, fw_api_username, fw_api_password, serialn
     req = "<request>"+"<license>"
 
     for lic in r:
-        req += "<install>"+"\n"
+        req += "<install>"
         req += lic['keyField']
         req += "</install>"
 
