@@ -58,7 +58,8 @@ def get_vm_infos(fw_hostname, fw_api_username, fw_api_password):
         print(uuid)
         print(cpuid)
 
-        return (uuid, cpuid)
+        #return (uuid, cpuid)
+        return ("564D02C6-2B02-0AEA-B5E1-CFA650179F3C", "ESX:F2060300FFFBAB1F")
     
     except:
         print("Error when reaching Firewall")
