@@ -50,15 +50,15 @@ def get_vm_infos(fw_hostname, fw_api_username, fw_api_password):
         resp = fw.op("show system info")
 
         for t in resp.iter('vm-uuid'):
-            uuid = urllib.parse.quote(t.text)
+            uuid = t.text
 
         for t in resp.iter('vm-cpuid'):
-            cpuid = urllib.parse.quote(t.text)
+            cpuid = t.text
 
         print(uuid)
         print(cpuid)
 
-        return (uuid, cpuid)
+        return (cpuid, uuid)
         #return ("564D02C6-2B02-0AEA-B5E1-CFA650179F3C", "ESX:F2060300FFFBAB1F")
     
     except:
@@ -208,5 +208,5 @@ def register(fw_hostname = None):
 
     logging.debug("Done")
 
-# if __name__ == '__main__':
-#     register("10.0.3.102")
+if __name__ == '__main__':
+    register("10.0.3.106")
