@@ -89,6 +89,7 @@ def switch_to_panorama(r, fw_hostname, fw_api_username, fw_api_password, serialn
         if lic['featureField'] == "PA-VM":
             #fw.op("<request><restart><system></system></restart></request>", cmd_xml=False)
             #fw.syncreboot()
+            print("none")
         else:
             fw.op(req, cmd_xml=False)
 
