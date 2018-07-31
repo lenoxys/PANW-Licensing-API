@@ -87,8 +87,8 @@ def switch_to_panorama(r, fw_hostname, fw_api_username, fw_api_password, serialn
         req += "</install></license></request>"
 
         if lic['featureField'] == "PA-VM":
-            fw.op("<request><restart><system></system></restart></request>", cmd_xml=False)
-            fw.syncreboot()
+            #fw.op("<request><restart><system></system></restart></request>", cmd_xml=False)
+            #fw.syncreboot()
         else:
             fw.op(req, cmd_xml=False)
 
@@ -97,10 +97,12 @@ def switch_to_panorama(r, fw_hostname, fw_api_username, fw_api_password, serialn
     pano.add(fw)
     pano.commit(sync=True)
 
-    #fw.fetch_licenses_from_license_server()
+    fw.fetch_licenses_from_license_server()
+
+    #forceauthcode(fw, auth_codeField)
 
 
-def forceauthcode(auth_codeField):
+def forceauthcode(fw, auth_codeField):
 
     logging.debug("Force Fetching licenses")
 
@@ -204,8 +206,6 @@ def register(fw_hostname = None):
     (serialnumField, auth_codeField) = store_lic(r)
 
     switch_to_panorama(r, fw_hostname, fw_api_username, fw_api_password, serialnumField)
-
-    forceauthcode(auth_codeField)
 
     logging.debug("Done")
 
