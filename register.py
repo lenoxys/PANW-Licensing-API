@@ -88,15 +88,12 @@ def switch_to_panorama(r, fw_hostname, fw_api_username, fw_api_password, serialn
         fw.op(req, cmd_xml=False)
 
     fw.syncreboot()
+    fw.refresh_system_info()
 
-    #pano = panorama.Panorama(pn_hostname, pn_api_username, pn_api_password)
-    #pano.add(panorama.DeviceGroup("undefined")).create()
-    #pano.add(fw)
-    #pano.commit(sync=True)
-
-    fw.fetch_licenses_from_license_server()
-
-
+    pano = panorama.Panorama(pn_hostname, pn_api_username, pn_api_password)
+    pano.add(panorama.DeviceGroup("undefined")).create()
+    pano.add(fw)
+    pano.commit(sync=True)
 
 def forceauthcode(fw, auth_codeField):
 
