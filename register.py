@@ -70,7 +70,7 @@ def switch_to_panorama(r, fw_hostname, fw_api_username, fw_api_password, serialn
     
     global pn_hostname, pn_api_username, pn_api_password
 
-    #fw = firewall.Firewall(fw_hostname, fw_api_username, fw_api_password)
+    fw = firewall.Firewall(fw_hostname, fw_api_username, fw_api_password)
 
     # Pushing New panorama settings
     #conf = device.SystemSettings(panorama = pn_hostname)
