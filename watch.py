@@ -14,27 +14,69 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+import sys
+import argparse
 import socket
 import threading
 import register
+import logging
+from _thread import start_new_thread
 
-bind_ip = '0.0.0.0'
+try:
+    from config import *
+except ImportError:
+    for arg in sys.argv: 1
+# use the command line to call the function from a single script.
+    print ("Run setup.py")
+    sys.exit(0)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-d", "--debug", help="increase output debug", action="store_true")
+parser.add_argument("--wildcard-binding", help="Listen on all IP address", action="store_true")
+args = parser.parse_args()
+
+if args.debug:
+    logging_format = '%(asctime)-15s:%(levelname)s:%(name)s:%(message)s'
+    logging.basicConfig(format=logging_format, level=10)
+else:
+    sys.tracebacklimit = 0
+
+if not bind_ip:
+    bind_ip = "127.0.0.1"
+
+if args.wildcard-binding:
+    bind_ip = '0.0.0.0'
+
+# Default Panorama port
 bind_port = 3978
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind((bind_ip, bind_port))
-server.listen(5)  # max backlog of connections
-
-print ('Listening on {}:{}'.format(bind_ip, bind_port))
-
-def handle_client_connection(client_socket):
-    request = client_socket.recv(1024)
-    print ('Received {}'.format(request))
-    client_socket.send('ACK!')
-    client_socket.close()
-
-while True:
-    client_sock, address = server.accept()
-    print ('Accepted connection from {}:{}'.format(address[0], address[1]))
+def clientthread(conn, address):
+    logging.debug('Accepted connection from {}:{}'.format(address[0], address[1]))
     register.register(address[0])
-    client_sock.close()
+    logging.debug('Closing connection from {}:{}'.format(address[0], address[1]))
+    conn.close()
+
+def main():
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    try:
+        server.bind((bind_ip, bind_port))
+    except socket.error as msg:
+        logging.debug('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
+        sys.exit()
+
+    server.listen(5)  # max backlog of connections
+
+    print ('Listening on {}:{}'.format(bind_ip, bind_port))
+
+    while True:
+
+        try:
+            client_sock, address = server.accept()
+            start_new_thread(clientthread ,(conn, address))
+
+        except:
+            logging.debug("Something Wrong Append")
+
+if __name__ == '__main__':
+    main()

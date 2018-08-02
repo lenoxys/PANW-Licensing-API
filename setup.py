@@ -44,6 +44,9 @@ def main():
     api = input("Default Firewall admin password: ")
     f.write("fw_api_password = '%s'\n" % api) 
 
+    api = input("Server Binding IP address: ")
+    f.write("bind_ip = '%s'\n" % api) 
+
     f.close()
 
 if __name__== "__main__":

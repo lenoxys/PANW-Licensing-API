@@ -16,13 +16,10 @@
 
 import sys
 import os
-import argparse
 import logging
 import json
 import requests
 import urllib
-
-#sys.tracebacklimit = 0
 
 try:
     from config import *
@@ -42,7 +39,7 @@ url = 'https://api.paloaltonetworks.com/api/license/activate'
 
 def get_vm_infos(fw_hostname, fw_api_username, fw_api_password):
 
-    logging.debug("Get the CPUID and UUID from the VM")
+    logging.info("Get the CPUID and UUID from the VM")
 
     try:
         fw = firewall.Firewall(fw_hostname, fw_api_username, fw_api_password)
@@ -55,62 +52,55 @@ def get_vm_infos(fw_hostname, fw_api_username, fw_api_password):
         for t in resp.iter('vm-cpuid'):
             cpuid = t.text
 
-        print(uuid)
-        print(cpuid)
+        logging.debug("VM CPUID: {}".format(cpuid))
+        logging.debug("VM UUID: {}".format(uuid))
 
         return (cpuid, uuid)
     
     except:
-        print("Error when reaching Firewall")
+        logging.debug("Error when reaching Firewall")
         return False
 
 def switch_to_panorama(r, fw_hostname, fw_api_username, fw_api_password, serialnumField):
 
-    logging.debug("Switch the fake panorama to the real one")
-    
-    global pn_hostname, pn_api_username, pn_api_password
+    logging.info("Switch the fake panorama to the real one")
 
     fw = firewall.Firewall(fw_hostname, fw_api_username, fw_api_password)
 
-    # Pushing New panorama settings
-    #conf = device.SystemSettings(panorama = pn_hostname)
-    #fw.add(conf)
-    #conf.create()
-    #fw.commit(sync=True)
+    try:
 
-    logging.debug("Switch the fake panorama to the real one")
+        for lic in r:
+            logging.debug("Push license to the VM : {}".format(lic['featureField']))
 
-    for lic in r:
-        logging.debug("Push license to the VM : {}".format(lic['featureField']))
+            req = "<request><license><install>"
+            req += lic['keyField']
+            req += "</install></license></request>"
 
-        req = "<request><license><install>"
-        req += lic['keyField']
-        req += "</install></license></request>"
+            fw.op(req, cmd_xml=False)
+    
+    except:
+        logging.debug("Unable to push license to the PanOS Firewall")
+        raise
 
-        fw.op(req, cmd_xml=False)
-
+    logging.info("Firewall will restart just after the license push. Wait him.")
     fw.syncreboot()
 
+    logging.info("Refresh informations and test connectivity")
     fw.refresh_system_info()
 
-    #pano = panorama.Panorama(pn_hostname, pn_api_username, pn_api_password)
-    #pano.add(panorama.DeviceGroup("undefined")).create()
-    #pano.add(fw)
-    #pano.commit(sync=True)
-
-
-def forceauthcode(fw, auth_codeField):
-
-    logging.debug("Force Fetching licenses")
-
-    for authcode in auth_codeField:
-        logging.debug("Force auth code registration with : {}".format(authcode))
-        req = "request license fetch auth-code {}".format(authcode)
-        resp = fw.op(req)
-
 def register_vm(cpuid, uuid):
+    """Register the VM to the support portal within CPUID and UUID
 
-    logging.debug("Register the VM with CPUID and UUID to the support API portal")
+    Args:
+        cpuid: CPUID of the VM
+        uuid: UUID of the VM 
+
+    Returns:
+        r: string in json format containing all the license
+
+    """
+
+    logging.info("Register the VM with CPUID and UUID to the support API portal")
     
     global authcode, url, api
 
@@ -125,55 +115,118 @@ def register_vm(cpuid, uuid):
     try:
         r = requests.post(url, headers=headers, json=data )
         r.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        logging.debug("Can't register the VM with the autcode {}.\n See the message {}".format(authcode, e.response._content))
+        raise e
+    except:
+        logging.debug("Error when reaching API License Server")
+        raise
+    else:
         return r.text
 
-    except requests.exceptions.HTTPError as err:
-        print ("Can't register the VM with the autcode {}.\n See the message {}".format(authcode, err.response._content))
-        raise
-
-    except:
-        print("Error when reaching API License Server")
-        raise
-
-    return None
-
 def store_lic(r = None):
+    """Extract Licenses and store it
 
-    logging.debug("Process License File and store it")
+    Args:
+        r: Response from the API Support Portal 
+
+    Returns:
+        bolean: True if all license has been writen or False if something wrong append
+
+    """
+
+    logging.info("Extract Licenses and store it")
 
     if r == None:
-        print("Nothing to process")
-        raise
+        logging.debug("Nothing to process")
+        return False
 
-    auth_codeField = []
-    serialnumField = None
+    for lic in r:
 
-    try:
-
-        for lic in r:
-            
+        try:
             fName = "./licenses/"+lic['serialnumField']+"/"
-
             if lic['featureField'] == ('AutoFocus Device License'):
                 fName += "PAN-VM-autofocus.key"
             else:
                 fName += lic['partidField']+".key"
-            
-            os.makedirs(os.path.dirname(fName), exist_ok=True)
+            write_lic_file(fName)
+        except:
+            logging.debug('Problem to store lic in the filesystem')
+            return False
+    
+    return True
 
-            f = open(fName,"w")
-            f.write(lic['keyField'])
-            f.close()
+    
+def get_authcodes(r = None):
+    """Extract VM auth code from the API support portal answer
 
+    Args:
+        r: Response from the API Support Portal 
+
+    Returns:
+        dict: authcodes or False if something wrong append
+
+    """
+
+    logging.debug("Process License File and store it")
+
+    if r == None:
+        logging.debug("Nothing to process")
+        return False
+
+    auth_codeField = []
+
+    for lic in r:
+        try:
             if lic['auth_codeField']:
                 auth_codeField.append(lic['auth_codeField'])
+        except:
+            logging.debug('Problem to store lic in the filesystem')
+            return False
 
-            serialnumField = lic['serialnumField']
+    return auth_codeField
+    
+def get_serialnumber(r = None):
+    """Extract VM serial number from the API support portal answer
 
-        return serialnumField, auth_codeField
+    Args:
+        r: Response from the API Support Portal
 
+    Returns:
+        string: SerialNumber of the VM or False if something wrong append
+
+    """
+
+    logging.debug("Process License File and store it")
+
+    if r == None:
+        logging.debug("Nothing to process")
+        return False
+
+    serialnumField = None
+
+    for lic in r:
+        try:
+            if lic['serialnumField']:
+                serialnumField = lic['serialnumField']
+        except:
+            logging.debug('Problem to store lic in the filesystem')
+            return False
+
+    return serialnumField
+
+def write_lic_file(filename):
+    try:
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
     except:
-        print ('Problem to store lic in the filesystem')
+        logging.debug("File directory doesn't exist or cannot be created")
+
+    try:
+        f = open(filename,"w")
+        f.write(lic['keyField'])
+        f.close()
+    except:
+        logging.debug("File cannot be created")
         raise
 
 
@@ -183,10 +236,8 @@ def register(fw_hostname = None):
         raise ValueError("Undefined hostname")
         return False
 
-    print("Registering for %s" % fw_hostname)
+    logging.info("Registering for %s" % fw_hostname)
 
-    logging_format = '%(levelname)s:%(name)s:%(message)s'
-    logging.basicConfig(format=logging_format, level=10)
 
     global fw_api_username, fw_api_password
     
@@ -196,8 +247,10 @@ def register(fw_hostname = None):
 
     r = json.loads(r)
 
-    (serialnumField, auth_codeField) = store_lic(r)
+    store_lic(r)
+
+    serialnumField = get_serialnumber(r)
 
     switch_to_panorama(r, fw_hostname, fw_api_username, fw_api_password, serialnumField)
 
-    logging.debug("Done")
+    logging.info("Done")
