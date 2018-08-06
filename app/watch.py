@@ -21,6 +21,7 @@ import threading
 import register
 import logging
 import threading
+from time import sleep
 
 from var_dump import var_dump
 
@@ -86,6 +87,7 @@ def main():
             client, address = server.accept()
 
             if address[0] in list_ip:
+                sleep(5)
                 client.close()
                 logging.debug("Already processed")
                 raise
