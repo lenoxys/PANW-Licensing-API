@@ -24,8 +24,6 @@ import urllib
 try:
     from config import *
 except ImportError:
-    for arg in sys.argv: 1
-# use the command line to call the function from a single script.
     print ("Run setup.py")
     sys.exit(0)
 
@@ -39,21 +37,25 @@ class Register:
     """Class for registering a fresh deployed PanOS firewall VM
 
     """
+    
+    url = 'https://api.paloaltonetworks.com/api/license/activate'
 
-   url = 'https://api.paloaltonetworks.com/api/license/activate'
+    def __init__(self, ip):
+        self.ip = ip
 
-   def __init__(self, ip):
-      self.ip = ip
+        global fw_api_username, fw_api_password, api
 
-      global fw.api_username, fw.api_password
+        self.username = fw_api_username
+        self.password = fw_api_password
+        self.api = api
 
-      self.username = fw.api_username
-      self.password = fw.api_password
+        self.fw = firewall.Firewall(self.ip, self.username, self.password)
 
-      self.fw.= firewall.Firewall(self.ip, self.username, self.password)
-
-      self.get_vm_infos(self)
-      self.
+        self.get_vm_infos()
+        self.select_auth_code()
+        self.register_vm()
+        self.store_lic()
+        self.push_license_to_vm()
 
     def get_vm_infos(self):
         """Get the CPUID and UUID of the VM
@@ -64,9 +66,9 @@ class Register:
 
         try:
             
-            resp = self.self.fw.op("show system info")
+            resp = self.fw.op("show system info")
 
-            for t in resp.iter('vm-hostname'):
+            for t in resp.iter('hostname'):
                 self.hostname = t.text
 
             for t in resp.iter('vm-uuid'):
@@ -81,23 +83,18 @@ class Register:
         
         except:
             logging.debug("Error when reaching Firewall")
+            raise
     
     def select_auth_code(self):
         """Select the proper auth code according to the IP subnet or Hostname
 
         """
+        global authcode
+
+        self.authcode = authcode
 
     def push_license_to_vm(self):
         """Push license to the VM
-
-        Args:
-            r: string in json format containing all the license
-            self.fw.hostname: hostname of the VM to login with API
-            self.fw.api_username: username of the VM to login with API
-            self.fw.api_password: password of the VM to login with API
-
-        Returns:
-            None
 
         """
 
@@ -105,11 +102,11 @@ class Register:
 
         try:
 
-            for lic in self.licenses:
-                logging.debug("Push license {}".format(lic['featureField']))
+            for key, value in self.licenses.items():
+                logging.debug("Push license {}".format(key))
 
                 req = "<request><license><install>"
-                req += lic['keyField']
+                req += value
                 req += "</install></license></request>"
 
                 self.fw.op(req, cmd_xml=False)
@@ -128,13 +125,6 @@ class Register:
     def register_vm(self):
         """Register the VM to the support portal within CPUID and UUID
 
-        Args:
-            cpuid: CPUID of the VM
-            uuid: UUID of the VM 
-
-        Returns:
-            r: string in json format containing all the license
-
         """
 
         logging.info("Register the VM with CPUID and UUID to the support API portal")
@@ -145,7 +135,7 @@ class Register:
             "authCode": self.authcode
         }
 
-        headers = {'apikey': api, 'user-agent': 'PANW-Lic-API/0.1.0'}
+        headers = {'apikey': self.api, 'user-agent': 'PANW-Lic-API/0.1.0'}
 
         try:
             r = requests.post(self.url, headers=headers, json=data )
@@ -156,114 +146,56 @@ class Register:
         except:
             logging.debug("Error when reaching API License Server")
             raise
-        else:
-            self.extract_license(self, r.json)
 
-    def extract_license(self, r):
+        data = r.json()
 
+        self.extract_answer(data)
+
+    def extract_answer(self, data):
+        """Extract Licenses, AuthCode, SerialNumber from Support answer
+
+        """
+        self.licenses = dict()
+        self.authcode = dict()
+
+        for lic in data:
+
+            if lic['featureField'] == ('AutoFocus Device License'):
+                lName = "PAN-VM-AUTOFOCUS"
+            else:
+                lName = lic['partidField']
+
+            if lic['auth_codeField']:
+                self.authcode[lName] = lic['auth_codeField']
+
+            if lic['serialnumField']:
+                self.serialnumField = lic['serialnumField']
+
+            self.licenses[lName] = lic['keyField']
 
     def store_lic(self):
-        """Extract Licenses and store it
-
-        Args:
-            r: Response from the API Support Portal 
-            serialnumField: Firewall serial number 
-
-        Returns:
-            bolean: True if all license has been writen or False if something wrong append
+        """Store license files
 
         """
 
-        logging.info("Extract Licenses and store it")
+        logging.info("Store license files")
 
-        if r == None:
-            logging.debug("Nothing to process")
-            return False
-
-        for lic in r:
-
-            try:
-                fName = "./licenses/"+serialnumField+"/"
-                if lic['featureField'] == ('AutoFocus Device License'):
-                    fName += "PAN-VM-autofocus.key"
-                else:
-                    fName += lic['partidField']+".key"
-                write_lic_file(fName, lic['keyField'])
-            except:
-                logging.debug('Problem to store lic in the filesystem')
-                return False
-        
-        return True
-
-        
-    def get_authcodes(r = None):
-        """Extract VM auth code from the API support portal answer
-
-        Args:
-            r: Response from the API Support Portal 
-
-        Returns:
-            list: authcodes or False if something wrong append
-
-        """
-
-        logging.debug("Extract VM auth code from the API support portal answer")
-
-        if r == None:
-            logging.debug("Nothing to process")
-            return False
-
-        auth_codeField = []
-
-        for lic in r:
-            try:
-                if lic['auth_codeField']:
-                    auth_codeField.append(lic['auth_codeField'])
-            except:
-                logging.debug('Problem to store lic in the filesystem')
-                return False
-
-        return auth_codeField
+        for key, value in self.licenses.items():
+            fName = "./licenses/"+self.serialnumField+"/"+key+".lic"
+            self.write_lic_file(fName, value)
         
     def get_serialnumber(self):
         """Extract VM serial number from the API support portal answer
 
-        Args:
-            r: Response from the API Support Portal
-
-        Returns:
-            string: SerialNumber of the VM or False if something wrong append
-
         """
+        return self.serialnumField
 
-        logging.debug("Process License File and store it")
-
-        if r == None:
-            logging.debug("Nothing to process")
-            return False
-
-        serialnumField = None
-
-        for lic in r:
-            try:
-                if lic['serialnumField']:
-                    serialnumField = lic['serialnumField']
-            except:
-                logging.debug('Problem to store lic in the filesystem')
-                return False
-
-        return serialnumField
-
-    def write_lic_file(self):
+    def write_lic_file(self, filename, keyField):
         """Write license file in a license directory
 
-        Args:
-            filename: filename
-
-        Returns:
-            None
-
         """
+
+        logging.debug("Storing {}".format(filename))
 
         try:
             os.makedirs(os.path.dirname(filename), exist_ok=True)
@@ -277,5 +209,3 @@ class Register:
         except:
             logging.debug("File cannot be created")
             raise
-
-
