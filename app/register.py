@@ -72,7 +72,7 @@ class Register:
 
         self.ip
 
-        raise
+        #raise
 
     def get_vm_infos(self):
         """Get the CPUID and UUID of the VM
