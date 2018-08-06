@@ -20,6 +20,7 @@ import logging
 import json
 import requests
 import urllib
+import ipaddress
 
 try:
     from config import *
@@ -45,6 +46,8 @@ class Register:
 
         global fw_api_username, fw_api_password, api
 
+        self.logging = logging.getLogger(__name__)
+
         self.username = fw_api_username
         self.password = fw_api_password
         self.api = api
@@ -52,17 +55,31 @@ class Register:
         self.fw = firewall.Firewall(self.ip, self.username, self.password)
 
         self.get_vm_infos()
+
+        self.is_registered()
+
         self.select_auth_code()
         self.register_vm()
         self.store_lic()
         self.push_license_to_vm()
+
+    def is_registered(self):
+        """Get the CPUID and UUID of the VM
+
+        """
+
+        self.logging.info("Check if already registered")
+
+        self.ip
+
+        raise
 
     def get_vm_infos(self):
         """Get the CPUID and UUID of the VM
 
         """
 
-        logging.info("Get the CPUID and UUID of the VM")
+        self.logging.info("Get the CPUID and UUID of the VM")
 
         try:
             
@@ -77,15 +94,23 @@ class Register:
             for t in resp.iter('vm-cpuid'):
                 self.cpuid = t.text
 
-            logging.debug("VM Hostname: {}".format(self.hostname))
-            logging.debug("VM CPUID: {}".format(self.cpuid))
-            logging.debug("VM UUID: {}".format(self.uuid))
+            self.logging.debug("VM Hostname: {}".format(self.hostname))
+            self.logging.debug("VM CPUID: {}".format(self.cpuid))
+            self.logging.debug("VM UUID: {}".format(self.uuid))
         
         except:
-            logging.debug("Error when reaching Firewall")
+            self.logging.debug("Error when reaching Firewall")
             raise
     
     def select_auth_code(self):
+        """Select the proper auth code according to the IP subnet or Hostname
+
+        """
+        global authcode
+
+        self.authcode = authcode
+    
+    def get_auth_code_info(self):
         """Select the proper auth code according to the IP subnet or Hostname
 
         """
@@ -98,28 +123,28 @@ class Register:
 
         """
 
-        logging.info("Push license to the VM")
+        self.logging.info("Push license to the VM")
 
         try:
 
             for key, value in self.licenses.items():
-                logging.debug("Push license {}".format(key))
+                self.logging.debug("Push license {}".format(key))
 
                 req = "<request><license><install>"
                 req += value
                 req += "</install></license></request>"
 
                 self.fw.op(req, cmd_xml=False)
-                logging.debug("OK")
+                self.logging.debug("OK")
         
         except:
-            logging.debug("Unable to push license to the PanOS Firewall")
+            self.logging.debug("Unable to push license to the PanOS Firewall")
             raise
 
-        logging.info("Firewall will restart just after the license push. Wait him.")
+        self.logging.info("Firewall will restart just after the license push. Wait him.")
         self.fw.syncreboot()
 
-        logging.info("Refresh informations and test connectivity")
+        self.logging.info("Refresh informations and test connectivity")
         self.fw.refresh_system_info()
 
     def register_vm(self):
@@ -127,7 +152,7 @@ class Register:
 
         """
 
-        logging.info("Register the VM with CPUID and UUID to the support API portal")
+        self.logging.info("Register the VM with CPUID and UUID to the support API portal")
 
         data = { 
             "cpuid": self.cpuid, 
@@ -141,10 +166,10 @@ class Register:
             r = requests.post(self.url, headers=headers, json=data )
             r.raise_for_status()
         except requests.exceptions.HTTPError as e:
-            logging.debug("Can't register the VM with the autcode {}.\n See the message {}".format(authcode, e.response._content))
+            self.logging.debug("Can't register the VM with the autcode {}.\n See the message {}".format(authcode, e.response._content))
             raise e
         except:
-            logging.debug("Error when reaching API License Server")
+            self.logging.debug("Error when reaching API License Server")
             raise
 
         data = r.json()
@@ -178,7 +203,7 @@ class Register:
 
         """
 
-        logging.info("Store license files")
+        self.logging.info("Store license files")
 
         for key, value in self.licenses.items():
             fName = "./licenses/"+self.serialnumField+"/"+key+".lic"
@@ -195,17 +220,17 @@ class Register:
 
         """
 
-        logging.debug("Storing {}".format(filename))
+        self.logging.debug("Storing {}".format(filename))
 
         try:
             os.makedirs(os.path.dirname(filename), exist_ok=True)
         except:
-            logging.debug("File directory doesn't exist or cannot be created")
+            self.logging.debug("File directory doesn't exist or cannot be created")
 
         try:
             f = open(filename,"w")
             f.write(keyField)
             f.close()
         except:
-            logging.debug("File cannot be created")
+            self.logging.debug("File cannot be created")
             raise

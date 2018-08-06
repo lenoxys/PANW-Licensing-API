@@ -20,7 +20,11 @@ import socket
 import threading
 import register
 import logging
-from _thread import start_new_thread
+import threading
+
+from var_dump import var_dump
+
+bind_ip = '127.0.0.1'
 
 try:
     from config import *
@@ -32,7 +36,7 @@ except ImportError:
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--debug", help="increase output debug", action="store_true")
-parser.add_argument("--wildcard-binding", help="Listen on all IP address", action="store_true")
+parser.add_argument("-w","--wildcard_binding", help="Listen on all IP address", action="store_true")
 args = parser.parse_args()
 
 if args.debug:
@@ -40,11 +44,10 @@ if args.debug:
     logging.basicConfig(format=logging_format, level=10)
 else:
     sys.tracebacklimit = 0
+    logging_format = '%(message)s'
+    logging.basicConfig(format=logging_format, level=20)
 
-if not bind_ip:
-    bind_ip = "127.0.0.1"
-
-if args.wildcard-binding:
+if args.wildcard_binding:
     bind_ip = '0.0.0.0'
 
 # Default Panorama port
@@ -52,12 +55,18 @@ bind_port = 3978
 
 def clientthread(conn, address):
     logging.debug('Accepted connection from {}:{}'.format(address[0], address[1]))
-    register.register(address[0])
-    logging.debug('Closing connection from {}:{}'.format(address[0], address[1]))
-    conn.close()
+    try: 
+        register.Register(address[0])
+    except:
+        logging.debug('Something wrong append from {}:{}'.format(address[0], address[1]))
+    finally:
+        logging.debug('Closing connection from {}:{}'.format(address[0], address[1]))
+        conn.close()
 
 def main():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    global bind_ip, bind_port
 
     try:
         server.bind((bind_ip, bind_port))
@@ -67,13 +76,31 @@ def main():
 
     server.listen(5)  # max backlog of connections
 
-    print ('Listening on {}:{}'.format(bind_ip, bind_port))
+    logging.info('Listening on {}:{}'.format(bind_ip, bind_port))
+
+    list_ip = list()
 
     while True:
 
         try:
-            client_sock, address = server.accept()
-            start_new_thread(clientthread ,(conn, address))
+            client, address = server.accept()
+
+            if address[0] in list_ip:
+                client.close()
+                logging.debug("Already processed")
+                raise
+
+            list_ip.append(address[0])
+    
+            client.settimeout(60)
+            threading.Thread(target = clientthread, args = (client,address)).start()
+
+        except socket.error as exc:
+            logging.info('Caught exception socket.error : {}'.format(exc))
+
+        except KeyboardInterrupt:
+            logging.debug("Keyboard Interrupt Exiting....")
+            sys.exit()
 
         except:
             logging.debug("Something Wrong Append")
