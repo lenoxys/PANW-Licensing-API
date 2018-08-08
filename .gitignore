@@ -113,4 +113,3 @@ app/config.py
 
 # licenses files
 app/licenses/.*
-app/licenses/*.*
