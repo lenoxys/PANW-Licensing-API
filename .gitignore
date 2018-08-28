@@ -113,4 +113,6 @@ app/config.py
 
 # licenses files
 app/licenses/.*
+
+# gui
 web/
