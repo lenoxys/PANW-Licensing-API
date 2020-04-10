@@ -1,11 +1,15 @@
-FROM python:3.6-alpine as base
-FROM base as builder
-RUN mkdir /install
-WORKDIR /install
-COPY requirements.txt /requirements.txt
-RUN pip3 install -r /requirements.txt
-FROM base
-COPY --from=builder /install /usr
+FROM python:3.6-slim as base
+
+COPY requirements.txt /tmp/
+
+RUN pip3 install -r /tmp/requirements.txt
+
+RUN useradd --create-home panlic
+WORKDIR /home/panlic
+USER panlic
+
 COPY app/ app/
-WORKDIR /app
-CMD ["./watch.py", "-d"]
+
+WORKDIR app
+
+CMD ["python3", "./watch.py", "-d"]

@@ -39,10 +39,14 @@ class Register:
 
     """
     
-    url = 'https://api.paloaltonetworks.com/api/license/activate'
+    url = 'https://api.paloaltonetworks.com/'
+    url_get = url+'api/license/get'
+    url_activate = url+'api/license/activate'
 
     def __init__(self, ip):
         self.ip = ip
+        
+        self.alreadylicensed = False
 
         global fw_api_username, fw_api_password, api
 
@@ -57,11 +61,18 @@ class Register:
         self.get_vm_infos()
 
         self.is_registered()
-
+        
         self.select_auth_code()
-        self.register_vm()
-        self.store_lic()
-        self.push_license_to_vm()
+        
+        self.get_auth_code_info()
+        
+        if self.alreadylicensed == False:
+            self.register_vm()
+        else:
+            self.get_license_vm()
+        
+        #self.store_lic()
+        #self.push_license_to_vm()
 
     def is_registered(self):
         """Get the CPUID and UUID of the VM
@@ -117,35 +128,78 @@ class Register:
         global authcode
 
         self.authcode = authcode
+        
+        data = { 
+            "authCode": self.authcode
+        }
 
-    def push_license_to_vm(self):
-        """Push license to the VM
+        headers = {'apikey': self.api, 'user-agent': 'PANW-Lic-API/0.1.0'}
+
+        req = requests.Request( 'POST', self.url_get, headers=headers, json=data )
+        p = req.prepare()
+        s = requests.Session()
+        r = s.send(p)
+
+        try:
+            r.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            self.logging.debug("Can't get the VM with the autcode {}.\n See the message {}".format(authcode, e.response._content))
+            raise e
+        except:
+            self.logging.debug("Can't register the VM with the autcode {}.\n See the message {}".format(authcode, e.response._content))
+            self.logging.debug("Error when reaching API License Server")
+            raise
+
+        data = r.json()
+        
+        self.extract_get_answer(data)
+
+    def extract_get_answer(self, data):
+        """Extract Licenses, AuthCode, SerialNumber from Support answer
+
+        """
+        self.devices = dict()
+        
+        for devices in data['UsedDeviceDetails']:
+            
+            if devices['UUID'] == self.uuid and \
+               devices['CPUID'] == self.cpuid:
+                
+                self.alreadylicensed = True
+                self.serialnumber = devices['SerialNumber']
+                self.logging.debug("this VM is already licensed in CSP portal")
+
+    def get_license_vm(self):
+        """Extract licence for the VM to the support portal within CPUID and UUID
 
         """
 
-        self.logging.info("Push license to the VM")
+        self.logging.info("Extract licence for the VM to the support portal within CPUID and UUID to the support API portal")
+
+        data = { 
+            "serialNumber": self.serialnumber
+        }
+
+        headers = {'apikey': self.api, 'user-agent': 'PANW-Lic-API/0.1.0'}
+
+        req = requests.Request( 'POST', self.url_activate, headers=headers, json=data )
+        p = req.prepare()
+        s = requests.Session()
+        r = s.send(p)
 
         try:
-
-            for key, value in self.licenses.items():
-                self.logging.debug("Push license {}".format(key))
-
-                req = "<request><license><install>"
-                req += value
-                req += "</install></license></request>"
-
-                self.fw.op(req, cmd_xml=False)
-                self.logging.debug("OK")
-        
+            r.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            self.logging.debug("Can't extract the VM with the serialnumber {}.\n See the message {}".format(serialnumber, e.response._content))
+            raise e
         except:
-            self.logging.debug("Unable to push license to the PanOS Firewall")
+            self.logging.debug("Can't extract the VM with the serialnumber {}.\n See the message {}".format(serialnumber, e.response._content))
+            self.logging.debug("Error when reaching API License Server")
             raise
 
-        self.logging.info("Firewall will restart just after the license push. Wait him.")
-        self.fw.syncreboot()
+        data = r.json()
 
-        self.logging.info("Refresh informations and test connectivity")
-        self.fw.refresh_system_info()
+        self.extract_lic_answer(data)
 
     def register_vm(self):
         """Register the VM to the support portal within CPUID and UUID
@@ -162,21 +216,26 @@ class Register:
 
         headers = {'apikey': self.api, 'user-agent': 'PANW-Lic-API/0.1.0'}
 
+        req = requests.Request( 'POST', self.url_activate, headers=headers, json=data )
+        p = req.prepare()
+        s = requests.Session()
+        r = s.send(p)
+
         try:
-            r = requests.post(self.url, headers=headers, json=data )
             r.raise_for_status()
         except requests.exceptions.HTTPError as e:
             self.logging.debug("Can't register the VM with the autcode {}.\n See the message {}".format(authcode, e.response._content))
             raise e
         except:
+            self.logging.debug("Can't register the VM with the autcode {}.\n See the message {}".format(authcode, e.response._content))
             self.logging.debug("Error when reaching API License Server")
             raise
 
         data = r.json()
 
-        self.extract_answer(data)
+        self.extract_lic_answer(data)
 
-    def extract_answer(self, data):
+    def extract_lic_answer(self, data):
         """Extract Licenses, AuthCode, SerialNumber from Support answer
 
         """
@@ -208,7 +267,36 @@ class Register:
         for key, value in self.licenses.items():
             fName = "./licenses/"+self.serialnumField+"/"+key+".lic"
             self.write_lic_file(fName, value)
+
+    def push_license_to_vm(self):
+        """Push license to the VM
+
+        """
+
+        self.logging.info("Push license to the VM")
+
+        try:
+
+            for key, value in self.licenses.items():
+                self.logging.debug("Push license {}".format(key))
+
+                req = "<request><license><install>"
+                req += value
+                req += "</install></license></request>"
+
+                self.fw.op(req, cmd_xml=False)
+                self.logging.debug("OK")
         
+        except:
+            self.logging.debug("Unable to push license to the PanOS Firewall")
+            raise
+
+        self.logging.info("Firewall will restart just after the license push. Wait him.")
+        self.fw.syncreboot()
+
+        self.logging.info("Refresh informations and test connectivity")
+        self.fw.refresh_system_info()
+            
     def get_serialnumber(self):
         """Extract VM serial number from the API support portal answer
 

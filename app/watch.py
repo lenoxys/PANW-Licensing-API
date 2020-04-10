@@ -43,6 +43,18 @@ args = parser.parse_args()
 if args.debug:
     logging_format = '%(asctime)-15s:%(levelname)s:%(name)s:%(message)s'
     logging.basicConfig(format=logging_format, level=10)
+    from http.client import HTTPConnection  # py3
+
+    log = logging.getLogger('urllib3')
+    log.setLevel(logging.DEBUG)
+
+    # logging from urllib3 to console
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    log.addHandler(ch)
+
+    # print statements from `http.client.HTTPConnection` to console/stdout
+    HTTPConnection.debuglevel = 1
 else:
     sys.tracebacklimit = 0
     logging_format = '%(message)s'
@@ -89,8 +101,8 @@ def main():
             if address[0] in list_ip:
                 sleep(5)
                 client.close()
-                logging.debug("Already processed")
-                raise
+                logging.debug('{} : Already processed'.format(address[0]))
+                continue
 
             list_ip.append(address[0])
     
@@ -101,11 +113,11 @@ def main():
             logging.info('Caught exception socket.error : {}'.format(exc))
 
         except KeyboardInterrupt:
-            logging.debug("Keyboard Interrupt Exiting....")
+            logging.debug('Keyboard Interrupt Exiting....')
             sys.exit()
 
         except:
-            logging.debug("Something Wrong Append")
+            logging.debug('Something Wrong Append')
 
 if __name__ == '__main__':
     main()
